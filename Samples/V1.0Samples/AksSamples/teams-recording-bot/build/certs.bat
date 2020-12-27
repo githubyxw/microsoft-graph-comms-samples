@@ -18,5 +18,5 @@ netsh http add urlacl url=http://+:%CallSignalingPort2%/ sddl=D:(A;;GX;;;S-1-1-0
 REM ensure the app id matches the GUID in AssemblyInfo.cs
 REM Ensure the certhash matches the certificate
 
-netsh http add sslcert ipport=0.0.0.0:%AzureSettings__CallSignalingPort% certhash=YOUR_CERT_THUMBPRINT appid={aeeb866d-e17b-406f-9385-32273d2f8691}
-netsh http add sslcert ipport=0.0.0.0:%AzureSettings__InstanceInternalPort% certhash=YOUR_CERT_THUMBPRINT appid={aeeb866d-e17b-406f-9385-32273d2f8691}
+netsh http add sslcert ipport=0.0.0.0:%AzureSettings__CallSignalingPort% certhash=d7404c4c7765d9125a7f3bd815a287c7b668345e appid={aeeb866d-e17b-406f-9385-32273d2f8691}
+netsh http add sslcert ipport=0.0.0.0:%AzureSettings__InstanceInternalPort% certhash=d7404c4c7765d9125a7f3bd815a287c7b668345e appid={aeeb866d-e17b-406f-9385-32273d2f8691}

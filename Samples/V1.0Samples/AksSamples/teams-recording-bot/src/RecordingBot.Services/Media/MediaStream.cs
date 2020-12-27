@@ -14,17 +14,21 @@
 using Microsoft.Graph.Communications.Calls;
 using Microsoft.Graph.Communications.Common;
 using Microsoft.Graph.Communications.Common.Telemetry;
+using Microsoft.CognitiveServices.Speech;
+using Microsoft.CognitiveServices.Speech.Audio;
 using Microsoft.Skype.Bots.Media;
 using RecordingBot.Model.Constants;
 using RecordingBot.Services.Contract;
 using RecordingBot.Services.ServiceSetup;
 using RecordingBot.Services.Util;
+using RecordingBot.Services.Speech;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
+using System.Diagnostics;
 
 namespace RecordingBot.Services.Media
 {
@@ -77,6 +81,9 @@ namespace RecordingBot.Services.Media
         /// The capture
         /// </summary>
         private CaptureEvents _capture;
+
+        private SpeechRecognizer _speechClient;
+        private VoiceAudioStream _audioStream;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="MediaStream" /> class.
@@ -161,6 +168,18 @@ namespace RecordingBot.Services.Media
                 _tokenSource = new CancellationTokenSource();
                 _buffer = new BufferBlock<SerializableAudioMediaBuffer>(new DataflowBlockOptions { CancellationToken = this._tokenSource.Token });
                 await Task.Factory.StartNew(this._process).ConfigureAwait(false);
+                // Initialize speech recognizer.
+                Debug.WriteLine("RecordingBot _start.");
+                _audioStream = new VoiceAudioStream();
+                var audioFormat = AudioStreamFormat.GetWaveFormatPCM(16000, 16, 1);
+                var audioConfig = AudioConfig.FromStreamInput(_audioStream, audioFormat);
+                var speechConfig = SpeechConfig.FromSubscription("03f0f0daa33448ba9f9bf799d2e14d2a", "westus2");
+
+                _speechClient = new SpeechRecognizer(speechConfig, audioConfig);
+                _speechClient.Recognized += _speechClient_Recognized;
+                _speechClient.Recognizing += _speechClient_Recognizing;
+                _speechClient.Canceled += _speechClient_Canceled;
+                await _speechClient.StartContinuousRecognitionAsync();
                 _isRunning = true;
             }
             this._syncLock.Release();
@@ -183,6 +202,22 @@ namespace RecordingBot.Services.Media
                 while (await _buffer.OutputAvailableAsync(_tokenSource.Token).ConfigureAwait(false))
                 {
                     SerializableAudioMediaBuffer data = await _buffer.ReceiveAsync(_tokenSource.Token).ConfigureAwait(false);
+                    if (!data.IsSilence)
+                    {
+                        if (data.SerializableUnmixedAudioBuffers != null)
+                        {
+                            foreach (var s in data.SerializableUnmixedAudioBuffers)
+                            {
+                                if (string.IsNullOrWhiteSpace(s.AdId) || string.IsNullOrWhiteSpace(s.DisplayName))
+                                {
+                                    continue;
+                                }
+                                _audioStream.Write(s.Buffer, 0, s.Buffer.Length);
+
+                            }
+                        }
+                       
+                    }
 
                     if (_settings.CaptureEvents)
                     {
@@ -239,6 +274,22 @@ namespace RecordingBot.Services.Media
             {
                 _logger.Error(ex, "Caught exception while processing chunck.");
             }
+        }
+
+
+        private void _speechClient_Canceled(object sender, SpeechRecognitionCanceledEventArgs e)
+        {
+            Debug.WriteLine("Recognition was cancelled." + e.Reason + "===" + e.ErrorCode + "+++" + e.ErrorDetails);
+        }
+
+        private void _speechClient_Recognizing(object sender, SpeechRecognitionEventArgs e)
+        {
+            Debug.WriteLine($"{e.SessionId} > Intermediate result: {e.Result.Text}");
+        }
+
+        private void _speechClient_Recognized(object sender, SpeechRecognitionEventArgs e)
+        {
+            Debug.WriteLine($"{e.SessionId} > Final result: {e.Result.Text}");
         }
     }
 }

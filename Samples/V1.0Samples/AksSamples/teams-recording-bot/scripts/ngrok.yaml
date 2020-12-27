@@ -1,0 +1,11 @@
+authtoken: 1l2jLUTfhPQ5hoH7OyeHtb7ysy6_2BQ7Z2GtZYHJZGc6ZBPTg
+tunnels:
+  signaling:
+    addr: "https://localhost:9441"
+    proto: http
+    subdomain: videorecord
+    host_header: "localhost:9441"
+  media: 
+    addr: 8445
+    proto: tcp
+    remote_addr: 1.tcp.ngrok.io:24822
